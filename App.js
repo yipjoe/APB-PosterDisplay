@@ -15,7 +15,7 @@ import { getAuth, signInWithEmailAndPassword, } from "firebase/auth";
 import { doc, getDoc, setDoc, getFirestore,onSnapshot,collection, addDoc  } from "firebase/firestore";
 
 //Assets
-import Poster1 from './assets/background.png' 
+import Poster1 from './assets/bgMapping.jpg'; // Local image for fallback
 //SVG - react-native-svg, react-native-svg-transformer, metro.config.js
 import ASDLogo from './assets/ASD_Logo.svg'
 import CurveDivider from './assets/CurveDivider.svg'
@@ -30,58 +30,139 @@ export default function App() {
   const [firebaseLoggedIn, setFirebaseLoggedIn] = useState(false)
   const [deviceID, setDeviceID] = useState(Application.getAndroidId())
   const [poster,setPoster] = useState()
-  var posterURL=[]
+  const [posterURLs,setPosterURLs] = useState(Poster1)
   var changeRate = 5000
   const db = getFirestore();
                                 
-
-  
   //Sign In Firebase
-    useEffect(() => {
-      signIn("virpluz@gmail.com","Virpluz1407!")
-     
-    }, []);
-  
-    const signIn = async (email,password) =>{
-      //const auth = getAuth(app)// Removed and import from firebaseConfig.js
-      await signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        // Signed in 
-        const user = userCredential.user;
-        const lastLogin = moment(user.lastLoginAt).format('YYYY-MM-DD HH:mm:ss')
-        //console.log(user)
-        console.log("Firebase login Success User Name:", user.displayName, "Last Login:", lastLogin);
-        updateHeartBeat()
-        const intervalHeartBeat = setInterval(() => updateHeartBeat(), 5*60*1000);
-        //updateHeartBeat()
-      })
-      .catch((error) => {
-        const errorCode = error.code;
-        const errorMessage = error.message;
-        console.error("Firebase login error:", errorCode, errorMessage);
-      });
-    }
-    /*
-    //Heartbeat Agent
-  
-    useEffect(() => {
-      updateHeartBeat()
-      const interval = setInterval(() => updateHeartBeat(), 5*60*1000);
-      return () => clearInterval(interval);
-    },[])
-    */
+  useEffect(() => {
+    signIn("virpluz@gmail.com","Virpluz1407!")
     
-    //updateHeartBeat 
-    const updateHeartBeat = async () =>{
-      const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
-      console.log(timestamp, "Update HeartBeat")
-      const docRef = await addDoc(collection(db, "APB_Poster_Heartbeat"), {
-        timestamp: timestamp,
-        hkdatetime: moment().format('YYYY-MM-DD HH:mm:ss'),
-        deviceID: deviceID,
-        type: Device.isDevice?"phyical":"virtual",
-      })
-    }
+  }, []);
+
+  const signIn = async (email,password) =>{
+    //const auth = getAuth(app)// Removed and import from firebaseConfig.js
+    await signInWithEmailAndPassword(auth, email, password)
+    .then((userCredential) => {
+      
+      // Signed in 
+      const user = userCredential.user;
+      const lastLogin = moment(user.lastLoginAt).format('YYYY-MM-DD HH:mm:ss')
+      console.log("Firebase login Success User Name:", user.displayName, "Last Login:", lastLogin);
+      
+      //Turn on Heartbeat Agent
+      updateHeartBeat()
+      const intervalHeartBeat = setInterval(() => updateHeartBeat(), 5*60*1000);
+      getCurrentPoster();
+      
+    })
+    .catch((error) => {
+      const errorCode = error.code;
+      const errorMessage = error.message;
+      console.error("Firebase login error:", errorCode, errorMessage);
+    });
+  }
+
+  //updateHeartBeat 
+  const updateHeartBeat = async () =>{
+    const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
+    console.log(timestamp, "Update HeartBeat")
+    const docRef = await addDoc(collection(db, "APB_Poster_Heartbeat"), {
+      timestamp: timestamp,
+      hkdatetime: moment().format('YYYY-MM-DD HH:mm:ss'),
+      deviceID: deviceID,
+      type: Device.isDevice?"phyical":"virtual",
+    })
+  }
+
+  //Get Poster from Firebase
+  const getCurrentPoster = async () => {
+    console.log("Get Current Poster");
+
+
+    const unsub = getDoc(doc(db, 'APB_PosterDisplay', 'Poster'), async (docSnap) => {
+      if (docSnap.exists()) {
+        //console.log("Get Poster Data", docSnap.data());
+        const remoteUrls = [docSnap.data().url1, docSnap.data().url2, docSnap.data().url3];
+        console.log("Remote URLs:", remoteUrls);
+        
+        // Get stored info from AsyncStorage
+        let stored = await AsyncStorage.getItem('posterInfo');
+        console.log("Stored Poster Info:", posterInfo);
+        let posterInfo = stored ? JSON.parse(stored) : [{}, {}, {}];
+        let localUris = [];
+
+        for (let i = 0; i < remoteUrls.length; i++) {
+          const remoteUrl = remoteUrls[i];
+          const prevUrl = posterInfo[i]?.url;
+          const prevLocalUri = posterInfo[i]?.localUri;
+
+          let localUri = prevLocalUri;
+
+          // If URL changed or no local file, download and update
+          if (remoteUrl && remoteUrl !== prevUrl) {
+            console.log("Remote URL changed or no local file, downloading:", remoteUrl);
+            try {
+              localUri = FileSystem.documentDirectory + `poster${i + 1}.jpg`;
+              const downloadResumable = FileSystem.createDownloadResumable(remoteUrl, localUri);
+              await downloadResumable.downloadAsync();
+              console.log(`Downloaded poster${i + 1} to`, localUri);
+            } catch (e) {
+              console.error(`Download error for poster${i + 1}:`, e);
+              localUri = null;
+            }
+          }
+
+          localUris.push(localUri);
+          posterInfo[i] = { url: remoteUrl, localUri };
+        }
+
+        // Save updated info to AsyncStorage
+        await AsyncStorage.setItem('posterInfo', JSON.stringify(posterInfo));
+        console.log("Updated Poster Info:", posterInfo);
+
+        // Optionally, update state to use the first poster
+        console.log("Setting Poster to:", localUris[0]);
+        setPoster(localUris[0]);
+        checkPosterFileSize();
+      } else {
+        console.log("No such document!");
+      }  
+        
+    })
+    
+  }
+
+ useEffect(() => {
+
+     const interval = setInterval(() => getCurrentPoster(), 60 * 1000); // Fetch every minute
+   
+ }, []);
+
+  /*
+  //Route Change Background
+  var counter = 0
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      
+      if (posterURLs.length == 3){
+        if (counter < posterURLs.length -1 ){
+        
+        counter = counter + 1
+        console.log("PosterIndex",counter)
+        //setPosterIndex(counter)
+        setPoster(posterURLs[counter])
+        }else{
+          counter=0
+          console.log("PosterIndex",counter)
+          setPoster(posterURLs[counter])
+        }
+      }
+    }, changeRate);
+    return () => clearInterval(interval);
+  }, []);
+*/
 
   /*
     useEffect(() => {
@@ -158,29 +239,7 @@ const getCurrentPoster = () => {
   }
 };
   
-  //Route Change Background
-  var counter = 0
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      
-   
-      if (posterURL.length == 3){
-        if (counter < posterURL.length -1 ){
-        
-        counter = counter + 1
-        console.log("PosterIndex",counter)
-        //setPosterIndex(counter)
-        setPoster(posterURL[counter])
-        }else{
-          counter=0
-          console.log("PosterIndex",counter)
-          setPoster(posterURL[counter])
-        }
-      }
-    }, changeRate);
-    return () => clearInterval(interval);
-  }, []);
+  
 */
   return (
     <View >
@@ -194,10 +253,11 @@ const getCurrentPoster = () => {
           <View style={{position:'absolute' , top:110,left:260}}><Text style={{fontSize:20}}>Property Services Branch</Text></View>
           <View style={{position:'absolute' , top:-52, right:0}}><SideBar1 width={135} height={135*13}/></View>
           
-          {(poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
-          :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) }
+          {/* (poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
+          :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) */}
           
-          <View style={{position:'absolute' , bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
+          <View style={{position:'absolute',top:300,left:0,borderWidth:3}}><Image sourc={{ uri: poster }} style={{ resizeMode: "contain", width:945,height:2048}}/></View>
+          <View style={{position:'absolute',bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
         </View>
       </View>
   );

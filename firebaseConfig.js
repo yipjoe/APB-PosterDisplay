@@ -16,18 +16,14 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Initialize Auth with persistence //New for firebase
-let auth 
-  try {
-    auth = getAuth(app);
-  }
-  catch (error) {
-    console.error("Error initializing Firebase Auth:", error);
-    initializeAuth(app, {
+// Initialize Auth with persistence, but only once
+let auth;
+try {
+  auth = getAuth(app);
+} catch (e) {
+  auth = initializeAuth(app, {
     persistence: getReactNativePersistence(ReactNativeAsyncStorage)
   });
-
-  }
+}
 
 export { app, auth };
-
