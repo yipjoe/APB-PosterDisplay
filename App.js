@@ -256,7 +256,7 @@ const getCurrentPoster = () => {
           {/* (poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
           :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) */}
           
-          <View style={{position:'absolute',top:300,left:0,borderWidth:3}}><Image sourc={{ uri: poster }} style={{ resizeMode: "contain", width:945,height:2048}}/></View>
+          <View style={{position:'absolute',top:300,left:0,borderWidth:3}}><Image sourc={{ uri: "file:///data/user/0/host.exp.exponent/files/poster3.jpg" }} style={{ resizeMode: "contain", width:945,height:2048}}/></View>
           <View style={{position:'absolute',bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
         </View>
       </View>
