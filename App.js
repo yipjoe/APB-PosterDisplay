@@ -31,7 +31,7 @@ export default function App() {
   const [firebaseLoggedIn, setFirebaseLoggedIn] = useState(false)
   const [deviceID, setDeviceID] = useState(Application.getAndroidId())
   const [poster,setPoster] = useState()
-  const [posterURLs,setPosterURLs] = useState(Poster1)
+  const [posterURLs,setPosterURLs] = useState()
   var changeRate = 5000
   const db = getFirestore();
                                 
@@ -94,6 +94,7 @@ export default function App() {
           const prevUrl = posterInfo[i]?.url;
           const prevLocalUri = posterInfo[i]?.localUri;
           let localUri = prevLocalUri;
+
           // If URL changed or no local file, download and update
          
           if (remoteUrl && remoteUrl !== prevUrl) {
@@ -109,6 +110,7 @@ export default function App() {
             }
           }
           localUris.push(localUri);
+          
           posterInfo[i] = { url: remoteUrl, localUri };
         }
         // Save updated info to AsyncStorage
@@ -116,7 +118,9 @@ export default function App() {
         //console.log("Updated Poster Info:", posterInfo);
         // Optionally, update state to use the first poster
         //console.log("Setting Poster to:", localUris[0]);
-        setPoster(localUris[1]);
+        setPoster(localUris[2])
+        console.log("Poster URLs:", localUris);
+        setPosterURLs(localUris);
         checkPosterFileSize();
       } else {
         console.log("No such document!");
@@ -124,7 +128,7 @@ export default function App() {
   }
 
  useEffect(() => {
-     const interval = setInterval(() => getCurrentPoster(), 10* 60 * 1000); // Fetch every minute
+     const interval = setInterval(() => getCurrentPoster(), 10 * 60 * 1000); // Fetch every minute
  }, []);
 
   
@@ -133,7 +137,7 @@ export default function App() {
 
   useEffect(() => {
     const interval = setInterval(() => {
-      
+      console.log("PosterURLs",posterURLs)
       if (posterURLs.length == 3){
         if (counter < posterURLs.length -1 ){
         
