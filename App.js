@@ -1,6 +1,7 @@
 import { StatusBar } from 'expo-status-bar';
 import {use, useEffect, useState} from 'react'
-import { StyleSheet, Text, View ,LogBox, Image} from 'react-native';
+import { Image } from 'expo-image'; //React Native Image Orginal Doesn't support remote URL
+import { StyleSheet, Text, View ,LogBox} from 'react-native';
 import * as Device from 'expo-device';
 import * as Application from 'expo-application';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -12,7 +13,7 @@ import moment from 'moment';
 import { app, auth } from './firebaseConfig';
 import { getStorage, ref, getDownloadURL ,uploadBytesResumable, uploadBytes, listAll,deleteObject , ListResult} from "firebase/storage";
 import { getAuth, signInWithEmailAndPassword, } from "firebase/auth";
-import { doc, getDoc, setDoc, getFirestore,onSnapshot,collection, addDoc  } from "firebase/firestore";
+import { doc, getDoc, setDoc, getFirestore, onSnapshot, collection, addDoc  } from "firebase/firestore";
 
 //Assets
 import Poster1 from './assets/bgMapping.jpg'; // Local image for fallback
@@ -37,7 +38,6 @@ export default function App() {
   //Sign In Firebase
   useEffect(() => {
     signIn("virpluz@gmail.com","Virpluz1407!")
-    
   }, []);
 
   const signIn = async (email,password) =>{
@@ -77,29 +77,25 @@ export default function App() {
 
   //Get Poster from Firebase
   const getCurrentPoster = async () => {
-    console.log("Get Current Poster");
-
-
-    const unsub = getDoc(doc(db, 'APB_PosterDisplay', 'Poster'), async (docSnap) => {
+    console.log(moment().format('YYYY-MM-DD HH:mm:ss')," Get Current Poster");
+    const docRef =  doc(db, 'APB_PosterDisplay', 'Poster');
+    const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         //console.log("Get Poster Data", docSnap.data());
         const remoteUrls = [docSnap.data().url1, docSnap.data().url2, docSnap.data().url3];
-        console.log("Remote URLs:", remoteUrls);
-        
+        //console.log("Remote URLs:", remoteUrls);
         // Get stored info from AsyncStorage
         let stored = await AsyncStorage.getItem('posterInfo');
-        console.log("Stored Poster Info:", posterInfo);
+        //console.log("Stored Poster Info:", posterInfo);
         let posterInfo = stored ? JSON.parse(stored) : [{}, {}, {}];
         let localUris = [];
-
         for (let i = 0; i < remoteUrls.length; i++) {
           const remoteUrl = remoteUrls[i];
           const prevUrl = posterInfo[i]?.url;
           const prevLocalUri = posterInfo[i]?.localUri;
-
           let localUri = prevLocalUri;
-
           // If URL changed or no local file, download and update
+         
           if (remoteUrl && remoteUrl !== prevUrl) {
             console.log("Remote URL changed or no local file, downloading:", remoteUrl);
             try {
@@ -112,34 +108,26 @@ export default function App() {
               localUri = null;
             }
           }
-
           localUris.push(localUri);
           posterInfo[i] = { url: remoteUrl, localUri };
         }
-
         // Save updated info to AsyncStorage
         await AsyncStorage.setItem('posterInfo', JSON.stringify(posterInfo));
-        console.log("Updated Poster Info:", posterInfo);
-
+        //console.log("Updated Poster Info:", posterInfo);
         // Optionally, update state to use the first poster
-        console.log("Setting Poster to:", localUris[0]);
-        setPoster(localUris[0]);
+        //console.log("Setting Poster to:", localUris[0]);
+        setPoster(localUris[1]);
         checkPosterFileSize();
       } else {
         console.log("No such document!");
-      }  
-        
-    })
-    
+      }         
   }
 
  useEffect(() => {
-
-     const interval = setInterval(() => getCurrentPoster(), 60 * 1000); // Fetch every minute
-   
+     const interval = setInterval(() => getCurrentPoster(), 10* 60 * 1000); // Fetch every minute
  }, []);
 
-  /*
+  
   //Route Change Background
   var counter = 0
 
@@ -162,85 +150,9 @@ export default function App() {
     }, changeRate);
     return () => clearInterval(interval);
   }, []);
-*/
 
-  /*
-    useEffect(() => {
-       //getCurrentPoster();
-       testGetPoster();
-       const interval = setInterval(() => testGetPoster(), 60*1000);
-      return () => clearInterval(interval);
-    },[]);
 
-    const testGetPoster = async () => {
-    //get items from 'APB_PosterDisplay' , "Poster" document
-      /*
-      const docRef = doc(db, 'APB_PosterDisplay', 'Poster');
-      const docSnap = await getDoc(docRef);
-      console.log("Get Poster Data",docSnap)
-      if (docSnap.exists()) {
-        console.log("Document data:", docSnap.data());
-       
-      } else {
-        console.log("No such document!");
-      }
-
-    }
-
-  // Get Poster
-const getCurrentPoster = () => {
-  var user = JSON.stringify(getAuth(app));
-  if (user) {
-    setFirebaseLoggedIn(true);
-    console.log("Get Data: Firebase Logged In");
-    const unsub = onSnapshot(doc(db, 'APB_PosterDisplay', 'Poster'), async (docSnap) => {
-      if (docSnap) {
-        const remoteUrls = [docSnap.data().url1, docSnap.data().url2, docSnap.data().url3];
-        console.log("Remote URLs:", remoteUrls);
-        // Get stored info from AsyncStorage
-        let stored = await AsyncStorage.getItem('posterInfo');
-        let posterInfo = stored ? JSON.parse(stored) : [{}, {}, {}];
-        let localUris = [];
-
-        for (let i = 0; i < remoteUrls.length; i++) {
-          const remoteUrl = remoteUrls[i];
-          const prevUrl = posterInfo[i]?.url;
-          const prevLocalUri = posterInfo[i]?.localUri;
-
-          let localUri = prevLocalUri;
-
-          // If URL changed or no local file, download and update
-          if (remoteUrl && remoteUrl !== prevUrl) {
-            try {
-              localUri = FileSystem.documentDirectory + `poster${i + 1}.jpg`;
-              const downloadResumable = FileSystem.createDownloadResumable(remoteUrl, localUri);
-              await downloadResumable.downloadAsync();
-              console.log(`Downloaded poster${i + 1} to`, localUri);
-            } catch (e) {
-              console.error(`Download error for poster${i + 1}:`, e);
-              localUri = null;
-            }
-          }
-
-          localUris.push(localUri);
-          posterInfo[i] = { url: remoteUrl, localUri };
-        }
-
-        // Save updated info to AsyncStorage
-        await AsyncStorage.setItem('posterInfo', JSON.stringify(posterInfo));
-        // Optionally, update state to use the first poster
-        setPoster(localUris[0]);
-      }
-    });
-  } else {
-    console.log("Get Data: Firebase Not Logged In");
-    signIn("virpluz@gmail.com", "Virpluz1407!");
-    setFirebaseLoggedIn(false);
-  }
-};
   
-  
-*/
   return (
     <View >
         <StatusBar style="disable" hidden={true} />
@@ -256,7 +168,7 @@ const getCurrentPoster = () => {
           {/* (poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
           :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) */}
           
-          <View style={{position:'absolute',top:300,left:0,borderWidth:3}}><Image sourc={{ uri: "file:///data/user/0/host.exp.exponent/files/poster3.jpg" }} style={{ resizeMode: "contain", width:945,height:2048}}/></View>
+          <View style={{position:'absolute',top:200,left:0,borderWidth:3}}><Image source={poster} contentFit="cover" style={{ resizeMode: "contain", width:945,height:2048}}/></View>
           <View style={{position:'absolute',bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
         </View>
       </View>
