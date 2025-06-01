@@ -31,9 +31,9 @@ export default function App() {
   const [firebaseLoggedIn, setFirebaseLoggedIn] = useState(false)
   const [deviceID, setDeviceID] = useState(Application.getAndroidId())
   const [poster,setPoster] = useState()
-  const [posterURLs,setPosterURLs] = useState("","","")
-  const [lastPosterUpdate, setLastPosterUpdate] = useState("");
-  const [posterInfo, setPosterInfo] = useState([{}, {}, {}]); // Store info for 3 posters
+  //const [posterURLs,setPosterURLs] = useState("","","")
+  //const [lastPosterUpdate, setLastPosterUpdate] = useState("");
+  //const [posterInfo, setPosterInfo] = useState([{}, {}, {}]); // Store info for 3 posters
   var changeRate = 5000
   const db = getFirestore();
                                 
@@ -56,6 +56,7 @@ export default function App() {
      
      // const intervalHeartBeat = setInterval(() => updateHeartBeat(), 300*1000);
       getCurrentPoster();
+      const interval = setInterval(() => getCurrentPoster(), 5 * 60 * 1000); // Fetch every minute
       
     })
     .catch((error) => {
@@ -66,7 +67,7 @@ export default function App() {
   }
 
   //updateHeartBeat 
-  const updateHeartBeat = async () =>{
+  const updateHeartBeat = async (posterInfo) =>{
     const timestamp = moment().format('YYYY-MM-DD HH:mm:ss');
     console.log(timestamp, "Update HeartBeat")
     const docRef = await addDoc(collection(db, "APB_Poster_Heartbeat"), {
@@ -81,6 +82,9 @@ export default function App() {
 
   //Get Poster from Firebase
   const getCurrentPoster = async () => {
+    let localUris = [];
+    let posterInfo ={}
+    let lastPosterUpdate = "";
     console.log(moment().format('YYYY-MM-DD HH:mm:ss')," Get Current Poster");
     const docRef =  doc(db, 'APB_PosterDisplay', 'Poster');
     const docSnap = await getDoc(docRef);
@@ -91,14 +95,14 @@ export default function App() {
         // Get stored info from AsyncStorage
         let stored = await AsyncStorage.getItem('posterInfo');
         //console.log("Stored Poster Info:", posterInfo);
-        let posterInfo = stored ? JSON.parse(stored) : [{}, {}, {}];
-        let localUris = [];
+        posterInfo = stored ? JSON.parse(stored) : [{}, {}, {}];
+    
         for (let i = 0; i < remoteUrls.length; i++) {
           const remoteUrl = remoteUrls[i];
           const prevUrl = posterInfo[i]?.url;
           const prevLocalUri = posterInfo[i]?.localUri;
-          const lastPosterUpdate = posterInfo[i]?.lastUpdate || "";
-          console.log("lastPosterUpdate", lastPosterUpdate);
+          lastPosterUpdate = posterInfo[i]?.lastPosterUpdate || moment().format('YYYY-MM-DD HH:mm:ss');
+          //console.log("lastPosterUpdate", lastPosterUpdate);
           // Check if the remote URL is valid
           let localUri = prevLocalUri;
           
@@ -119,9 +123,8 @@ export default function App() {
             }
           }
           localUris.push(localUri);
-          setPosterURLs(localUris);
           posterInfo[i] = { url: remoteUrl, localUri , lastPosterUpdate };
-          setPosterInfo(posterInfo);
+          //setPosterInfo(posterInfo);
         }
         // Save updated info to AsyncStorage
         await AsyncStorage.setItem('posterInfo', JSON.stringify(posterInfo));
@@ -129,42 +132,45 @@ export default function App() {
         // Optionally, update state to use the first poster
         //console.log("Setting Poster to:", localUris[0]);
         setPoster(localUris[0])
-        console.log("Poster URLs:", localUris);
+        //console.log("Poster URLs:", localUris);
+        
        
         //checkPosterFileSize();
-         updateHeartBeat()
+        
       } else {
         console.log("No such document!");
       }         
+      //console.log("PosterInfo", posterInfo);
+      //console.log("LocalUris", localUris);
+      posterChange(localUris); // Start changing posters
+      updateHeartBeat(posterInfo);
   }
 
- useEffect(() => {
-     const interval = setInterval(() => getCurrentPoster(), 10 * 60 * 1000); // Fetch every minute
- }, []);
+
 
   
   //Route Change Background
   var counter = 0
 
-  useEffect(() => {
+  const posterChange = (posterURLs) => {
     const interval = setInterval(() => {
-      console.log("PosterURLs",posterURLs)
+      //console.log("PosterURLs",posterURLs)
       if (posterURLs.length == 3){
         if (counter < posterURLs.length -1 ){
         
         counter = counter + 1
-        console.log("PosterIndex",counter)
+        //console.log("PosterIndex",counter)
         //setPosterIndex(counter)
         setPoster(posterURLs[counter])
         }else{
           counter=0
-          console.log("PosterIndex",counter)
+          //console.log("PosterIndex",counter)
           setPoster(posterURLs[counter])
         }
       }
     }, changeRate);
     return () => clearInterval(interval);
-  }, []);
+  }
 
 
   
@@ -183,7 +189,7 @@ export default function App() {
           {/* (poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
           :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) */}
           
-          <View style={{position:'absolute',top:0,left:0,borderWidth:0}}><Image source={poster}  style={{ resizeMode: "contain", width:945,height:2048}}/></View>
+          <View style={{position:'absolute',top:0,left:0,borderWidth:0}}><Image source={poster} contentFit= "contain" style={{ width:945,height:2048}}/></View>
           <View style={{position:'absolute',bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
         </View>
       </View>
