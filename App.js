@@ -24,14 +24,16 @@ import Line from './assets/line.svg'
 import SideBar1 from './assets/sidebar1.svg'
 import Footer from './assets/Footer.svg'
 
-//LogBox.ignoreAllLogs();
+LogBox.ignoreAllLogs();
 
 export default function App() {
   //Device ID
   const [firebaseLoggedIn, setFirebaseLoggedIn] = useState(false)
   const [deviceID, setDeviceID] = useState(Application.getAndroidId())
   const [poster,setPoster] = useState()
-  const [posterURLs,setPosterURLs] = useState()
+  const [posterURLs,setPosterURLs] = useState("","","")
+  const [lastPosterUpdate, setLastPosterUpdate] = useState("");
+  const [posterInfo, setPosterInfo] = useState([{}, {}, {}]); // Store info for 3 posters
   var changeRate = 5000
   const db = getFirestore();
                                 
@@ -51,8 +53,8 @@ export default function App() {
       console.log("Firebase login Success User Name:", user.displayName, "Last Login:", lastLogin);
       
       //Turn on Heartbeat Agent
-      updateHeartBeat()
-      const intervalHeartBeat = setInterval(() => updateHeartBeat(), 5*60*1000);
+     
+     // const intervalHeartBeat = setInterval(() => updateHeartBeat(), 300*1000);
       getCurrentPoster();
       
     })
@@ -72,6 +74,8 @@ export default function App() {
       hkdatetime: moment().format('YYYY-MM-DD HH:mm:ss'),
       deviceID: deviceID,
       type: Device.isDevice?"phyical":"virtual",
+      posterInfo: posterInfo,
+      
     })
   }
 
@@ -93,7 +97,11 @@ export default function App() {
           const remoteUrl = remoteUrls[i];
           const prevUrl = posterInfo[i]?.url;
           const prevLocalUri = posterInfo[i]?.localUri;
+          const lastPosterUpdate = posterInfo[i]?.lastUpdate || "";
+          console.log("lastPosterUpdate", lastPosterUpdate);
+          // Check if the remote URL is valid
           let localUri = prevLocalUri;
+          
 
           // If URL changed or no local file, download and update
          
@@ -104,24 +112,27 @@ export default function App() {
               const downloadResumable = FileSystem.createDownloadResumable(remoteUrl, localUri);
               await downloadResumable.downloadAsync();
               console.log(`Downloaded poster${i + 1} to`, localUri);
+              lastPosterUpdate = moment().format('YYYY-MM-DD HH:mm:ss');
             } catch (e) {
               console.error(`Download error for poster${i + 1}:`, e);
               localUri = null;
             }
           }
           localUris.push(localUri);
-          
-          posterInfo[i] = { url: remoteUrl, localUri };
+          setPosterURLs(localUris);
+          posterInfo[i] = { url: remoteUrl, localUri , lastPosterUpdate };
+          setPosterInfo(posterInfo);
         }
         // Save updated info to AsyncStorage
         await AsyncStorage.setItem('posterInfo', JSON.stringify(posterInfo));
         //console.log("Updated Poster Info:", posterInfo);
         // Optionally, update state to use the first poster
         //console.log("Setting Poster to:", localUris[0]);
-        setPoster(localUris[2])
+        setPoster(localUris[0])
         console.log("Poster URLs:", localUris);
-        setPosterURLs(localUris);
-        checkPosterFileSize();
+       
+        //checkPosterFileSize();
+         updateHeartBeat()
       } else {
         console.log("No such document!");
       }         
@@ -172,7 +183,7 @@ export default function App() {
           {/* (poster)?(<View style={{position:'absolute' , top:30,left:0,borderWidth:5}}><Image source={{uri: poster}} style={{ resizeMode: "contain", width:945,height:2048}}/></View>)
           :(<View style={{position:'absolute' , top:300,left:0,borderWidth:3}}><Image source={Poster1} style={{ resizeMode: "contain", width:945,height:2048}}/></View>) */}
           
-          <View style={{position:'absolute',top:200,left:0,borderWidth:3}}><Image source={poster} contentFit="cover" style={{ resizeMode: "contain", width:945,height:2048}}/></View>
+          <View style={{position:'absolute',top:0,left:0,borderWidth:0}}><Image source={poster}  style={{ resizeMode: "contain", width:945,height:2048}}/></View>
           <View style={{position:'absolute',bottom:100, right:-250, opacity:1,borderWidth:1}}><Footer width={1400} height={450}/></View>       
         </View>
       </View>
